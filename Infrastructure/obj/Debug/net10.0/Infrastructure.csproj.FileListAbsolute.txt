@@ -1,0 +1,17 @@
+/home/wall-do/TerpelIntegracion/Infrastructure/bin/Debug/net10.0/Infrastructure.deps.json
+/home/wall-do/TerpelIntegracion/Infrastructure/bin/Debug/net10.0/Infrastructure.dll
+/home/wall-do/TerpelIntegracion/Infrastructure/bin/Debug/net10.0/Infrastructure.pdb
+/home/wall-do/TerpelIntegracion/Infrastructure/bin/Debug/net10.0/Application.dll
+/home/wall-do/TerpelIntegracion/Infrastructure/bin/Debug/net10.0/Domain.dll
+/home/wall-do/TerpelIntegracion/Infrastructure/bin/Debug/net10.0/Application.pdb
+/home/wall-do/TerpelIntegracion/Infrastructure/bin/Debug/net10.0/Domain.pdb
+/home/wall-do/TerpelIntegracion/Infrastructure/obj/Debug/net10.0/Infrastructure.csproj.AssemblyReference.cache
+/home/wall-do/TerpelIntegracion/Infrastructure/obj/Debug/net10.0/Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+/home/wall-do/TerpelIntegracion/Infrastructure/obj/Debug/net10.0/Infrastructure.AssemblyInfoInputs.cache
+/home/wall-do/TerpelIntegracion/Infrastructure/obj/Debug/net10.0/Infrastructure.AssemblyInfo.cs
+/home/wall-do/TerpelIntegracion/Infrastructure/obj/Debug/net10.0/Infrastructure.csproj.CoreCompileInputs.cache
+/home/wall-do/TerpelIntegracion/Infrastructure/obj/Debug/net10.0/Infrastr.15EFFBFE.Up2Date
+/home/wall-do/TerpelIntegracion/Infrastructure/obj/Debug/net10.0/Infrastructure.dll
+/home/wall-do/TerpelIntegracion/Infrastructure/obj/Debug/net10.0/refint/Infrastructure.dll
+/home/wall-do/TerpelIntegracion/Infrastructure/obj/Debug/net10.0/Infrastructure.pdb
+/home/wall-do/TerpelIntegracion/Infrastructure/obj/Debug/net10.0/ref/Infrastructure.dll

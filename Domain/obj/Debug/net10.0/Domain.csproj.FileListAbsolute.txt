@@ -1,0 +1,11 @@
+/home/wall-do/TerpelIntegracion/Domain/bin/Debug/net10.0/Domain.deps.json
+/home/wall-do/TerpelIntegracion/Domain/bin/Debug/net10.0/Domain.dll
+/home/wall-do/TerpelIntegracion/Domain/bin/Debug/net10.0/Domain.pdb
+/home/wall-do/TerpelIntegracion/Domain/obj/Debug/net10.0/Domain.GeneratedMSBuildEditorConfig.editorconfig
+/home/wall-do/TerpelIntegracion/Domain/obj/Debug/net10.0/Domain.AssemblyInfoInputs.cache
+/home/wall-do/TerpelIntegracion/Domain/obj/Debug/net10.0/Domain.AssemblyInfo.cs
+/home/wall-do/TerpelIntegracion/Domain/obj/Debug/net10.0/Domain.csproj.CoreCompileInputs.cache
+/home/wall-do/TerpelIntegracion/Domain/obj/Debug/net10.0/Domain.dll
+/home/wall-do/TerpelIntegracion/Domain/obj/Debug/net10.0/refint/Domain.dll
+/home/wall-do/TerpelIntegracion/Domain/obj/Debug/net10.0/Domain.pdb
+/home/wall-do/TerpelIntegracion/Domain/obj/Debug/net10.0/ref/Domain.dll

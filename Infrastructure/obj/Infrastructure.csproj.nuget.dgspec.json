@@ -739,6 +739,10 @@
         "net10.0": {
           "targetAlias": "net10.0",
           "dependencies": {
+            "CsvHelper": {
+              "target": "Package",
+              "version": "[33.0.1, )"
+            },
             "ExcelDataReader": {
               "target": "Package",
               "version": "[3.8.0, )"
@@ -747,9 +751,17 @@
               "target": "Package",
               "version": "[3.8.0, )"
             },
+            "Microsoft.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[8.0.10, )"
+            },
             "Microsoft.Extensions.Http": {
               "target": "Package",
               "version": "[10.0.0, )"
+            },
+            "Pomelo.EntityFrameworkCore.MySql": {
+              "target": "Package",
+              "version": "[8.0.2, )"
             },
             "Serilog": {
               "target": "Package",

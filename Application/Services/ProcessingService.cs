@@ -45,8 +45,11 @@ namespace Application.Services
 
             // 4. Validar cada registro
             var validator = new RegistroVentaValidator();
+            var invalidLogged = 0;
+            var rowNumber = 0;
             foreach (var r in registros)
             {
+                rowNumber++;
                 ValidationResult vr = await validator.ValidateAsync(r);
                 if (vr.IsValid)
                 {
@@ -55,6 +58,11 @@ namespace Application.Services
                 else
                 {
                     result.RegistrosInvalidos.Add((r, vr.Errors.Select(e => e.ErrorMessage).ToList()));
+                    if (invalidLogged < 5)
+                    {
+                        _logger.LogWarning("Registro inválido #{Row}: {Errors}", rowNumber, string.Join("; ", vr.Errors.Select(e => e.ErrorMessage)));
+                        invalidLogged++;
+                    }
                 }
             }
 

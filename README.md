@@ -6,6 +6,29 @@
 
 Servicio .NET para integrarse con la plataforma de Terpel y consumir archivos diarios de ventas (XLS/CSV). El sistema descarga el archivo, lo valida, lo mapea a entidades internas y expone operaciones REST para ejecución síncrona y asíncrona (con callback). Implementación con Clean Architecture (Domain / Application / Infrastructure / Presentation).
 
+## Requisitos e instalación rápida
+
+- .NET SDK 10.0 (preview) instalado (`dotnet --info` debe mostrar 10.0.x). 
+- Restaura dependencias backend: `dotnet restore`. Compila: `dotnet build`. Ejecuta API: `dotnet run --project Presentation --urls "http://localhost:5000"`.
+- Frontend (si se usa): `cd frontend-vue/terpel-frontend && npm install && npm run dev`.
+- Configuración local: copia `Presentation/appsettings.Local.example.json` a `Presentation/appsettings.Local.json` y rellena secretos **o** usa `dotnet user-secrets`/variables de entorno.
+
+### Manejo de secretos (no se suben al repo)
+
+- El repo ignora archivos locales de configuración (`appsettings.Local*.json`, `.env`, `secrets.json`) vía `.gitignore`.
+- Opción 1 (recomendada): usar `dotnet user-secrets` en Desarrollo:
+  ```bash
+  cd /home/wall-do/TerpelIntegracion/Presentation
+  dotnet user-secrets init
+  dotnet user-secrets set "OAuth:TokenUrl" "https://..."
+  dotnet user-secrets set "OAuth:ClientId" "..."
+  dotnet user-secrets set "OAuth:ClientSecret" "..."
+  dotnet user-secrets set "TerpelApi:BearerToken" "..."
+  dotnet user-secrets set "PhpApi:ApiKey" "..."
+  ```
+- Opción 2: crear `Presentation/appsettings.Local.json` desde el ejemplo y mantenerlo fuera de git.
+- En Producción, usa variables de entorno (`ASPNETCORE_`/`DOTNET_`) o un proveedor seguro (KeyVault/Secrets Manager).
+
 ## Qué hace el sistema (alto nivel)
 
 - Consulta una URL dinámica publicada por Terpel (placeholder).
@@ -193,8 +216,235 @@ Nota: solo termina procesos que identifiques como tus pruebas (por ejemplo, proc
 Archivo generado: `README.md` (resumen, guía de pruebas y comandos). Si quieres que lo amplíe (por ejemplo con ejemplos de payload, o scripts `curl` listos), dime exactamente qué agregar.
 
 
-## Urls Prueba
 
-- http://localhost:5000/swagger/v1/swagger.json
 
-- http://localhost:5000/swagger/index.html
+## Pruebas paso a paso — Guía completa y solución de errores
+
+Esta guía está pensada para cualquier usuario, incluso sin experiencia técnica ni conocimiento previo del negocio Terpel. Explica desde la compilación hasta la solución de errores comunes.
+
+### 1. Compilar el sistema
+
+Abre una terminal y ejecuta:
+
+```bash
+cd ~/TerpelIntegracion
+dotnet build
+```
+
+Si ves `Compilación correcta` o `Build succeeded`, puedes continuar. Si hay errores, revisa que tengas instalado el .NET SDK 10.0 o superior.
+
+---
+
+### 2. Verifica que el puerto 5100 esté libre
+
+Antes de arrancar la API, asegúrate de que el puerto 5100 no esté ocupado:
+
+```bash
+ss -ltnp | grep ':5100\b' || sudo lsof -iTCP:5100 -sTCP:LISTEN -P -n
+```
+
+Si ves una línea con `Presentation` o cualquier otro proceso, anota el número de PID (por ejemplo, `pid=12345`).
+
+Para liberar el puerto, ejecuta:
+
+```bash
+kill 12345
+sleep 1
+ss -ltnp | grep ':5100\b' || true
+```
+
+Si el proceso no se detiene, usa:
+
+```bash
+kill -9 12345
+```
+
+---
+
+### 3. Arranca la API en el puerto 5100
+
+Ejecuta:
+
+```bash
+nohup dotnet run --project Presentation --no-build --urls "http://localhost:5100" > /tmp/presentation.log 2>&1 &
+sleep 2
+tail -n 40 /tmp/presentation.log
+```
+
+Deberías ver una línea como:
+
+```
+Now listening on: http://localhost:5100
+```
+
+Si ves un error `address already in use`, repite el paso 2.
+
+---
+
+### 4. Solicita un token OAuth2 (autenticación simulada)
+
+El sistema requiere un "token" para simular la autenticación con Terpel. Ejecuta:
+
+```bash
+curl -sS -X POST http://localhost:5100/oauth/token \
+  -d 'grant_type=client_credentials' \
+  -d 'client_id=terpel_test_client' \
+  -d 'client_secret=s3cr3t_Terpel!2025' \
+  -w "\nHTTP_STATUS:%{http_code}\n" -o /tmp/token_response.json
+
+cat /tmp/token_response.json
+```
+
+Deberías ver algo como:
+
+```json
+{"access_token":"...","token_type":"Bearer","expires_in":3600}
+HTTP_STATUS:200
+```
+
+Si ves `HTTP_STATUS:401` o error, revisa que la contraseña esté entre comillas simples y que la API esté corriendo.
+
+---
+
+### 5. Prueba el procesamiento de ventas (modo síncrono)
+
+Esto simula el envío de un archivo de ventas para que el sistema lo procese y devuelva el resultado inmediatamente:
+
+```bash
+curl -sS -X POST http://localhost:5100/api/terpel/ventas/sync \
+  -H 'Content-Type: application/json' \
+  -d '{"DynamicUrl":"dummy://local/dummy.csv","AuthType":"OAuth","CallbackUrl":"http://localhost:5100/api/terpel/callback/success"}' \
+  -w "\nHTTP_STATUS:%{http_code}\n" -o /tmp/sync_response.json
+
+cat /tmp/sync_response.json
+```
+
+El sistema responderá con un resumen del procesamiento, por ejemplo:
+
+```json
+{"idTransaccion":"...","registrosValidos":[{...}],"registrosInvalidos":[]}
+HTTP_STATUS:200
+```
+
+Si ves `HTTP_STATUS:500` o error, revisa los logs con:
+
+```bash
+tail -n 80 /tmp/presentation.log
+```
+
+---
+
+### 6. (Opcional) Prueba el procesamiento asíncrono
+
+En este modo, el sistema acepta la solicitud y procesa el archivo "en segundo plano". Cuando termina, notifica a una URL de callback (simulada):
+
+```bash
+curl -sS -X POST http://localhost:5100/api/terpel/ventas/async \
+  -H 'Content-Type: application/json' \
+  -d '{"DynamicUrl":"dummy://local/dummy.csv","AuthType":"OAuth","CallbackUrl":"http://localhost:5100/api/terpel/callback/success"}' \
+  -w "\nHTTP_STATUS:%{http_code}\n" -o /tmp/async_response.json
+
+cat /tmp/async_response.json
+```
+
+La respuesta será:
+
+```json
+{"idTransaccion":"..."}
+HTTP_STATUS:202
+```
+
+El resultado final se envía automáticamente al endpoint de callback configurado.
+
+---
+
+### 7. Verifica los logs del servidor
+
+Para ver el detalle de lo que ocurrió internamente (útil para soporte):
+
+```bash
+tail -n 80 /tmp/presentation.log
+```
+
+Busca mensajes de procesamiento, obtención de token y callbacks.
+
+---
+
+### 8. (Opcional) Ver la documentación interactiva (Swagger)
+
+Abre en tu navegador:
+
+- http://localhost:5100/swagger/index.html
+
+Aquí puedes probar los endpoints desde una interfaz web.
+
+---
+
+### Explicación para no técnicos
+
+- **¿Qué es un token OAuth2?** Es una "llave" digital que simula la autenticación con Terpel. Aquí usamos un endpoint de prueba local.
+- **¿Qué es un archivo de ventas?** Es un archivo (CSV) con los registros diarios de ventas de estaciones de servicio. El sistema lo valida y lo procesa.
+- **¿Qué es síncrono/asíncrono?** Síncrono: esperas la respuesta en el momento. Asíncrono: el sistema procesa y te avisa cuando termina.
+- **¿Qué es un callback?** Es una URL a la que el sistema notifica el resultado cuando termina el procesamiento asíncrono.
+
+---
+
+### Credenciales de prueba
+
+- ClientId: `terpel_test_client`
+- ClientSecret: `s3cr3t_Terpel!2025`
+- TokenUrl: `http://localhost:5100/oauth/token`
+
+---
+
+Si tienes dudas, comparte el error y el contenido de `/tmp/presentation.log` para soporte.
+
+## Credenciales de prueba (OAuth2 - mock)
+
+He creado credenciales de prueba y un endpoint local mock para que puedas probar el flujo OAuth2 (client_credentials) sin depender de un proveedor externo.
+
+- ClientId: `terpel_test_client`
+- ClientSecret: `s3cr3t_Terpel!2025`
+- Token URL (mock): `http://localhost:5000/oauth/token`
+
+Estas credenciales están también incluidas en `Presentation/appsettings.json` y `Presentation/appsettings.Development.json` para conveniencia de pruebas locales.
+
+### Cómo probar OAuth2 con el endpoint mock
+
+1) Arranca la API como se indica arriba (por ejemplo en `http://localhost:5000`).
+
+2) Ejemplo de `curl` para solicitar el token (directamente contra el mock endpoint):
+
+```bash
+curl -sS -X POST http://localhost:5100/oauth/token \
+  -d 'grant_type=client_credentials' \
+  -d 'client_id=terpel_test_client' \
+  -d 'client_secret=s3cr3t_Terpel!2025'
+```
+
+Respuesta esperada (JSON):
+
+```json
+{
+  "access_token": "<token>",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+
+3) Probar el endpoint `/api/terpel/ventas/sync` usando `AuthType":"OAuth"` (la aplicación obtendrá el token del mock `TokenUrl` y lo adjuntará como `Authorization: Bearer <token>` al descargar la URL final):
+
+```bash
+curl -sS -X POST http://localhost:5100/api/terpel/ventas/sync \
+  -H 'Content-Type: application/json' \
+  -d '{"DynamicUrl":"dummy://local/dummy.csv","AuthType":"OAuth","CallbackUrl":"http://localhost:5100/api/terpel/callback/success"}' \
+  -w "\nHTTP_STATUS:%{http_code}\n" -o /tmp/sync_response.json
+
+jq . /tmp/sync_response.json || cat /tmp/sync_response.json
+```
+
+4) Notas:
+- El `OAuthTokenProvider` implementado consulta la URL en `OAuth:TokenUrl` y cachea el token hasta su expiración.
+- El mock endpoint solo acepta las credenciales documentadas arriba y genera tokens aleatorios encuadrados para pruebas.
+
+Si quieres que genere credenciales diferentes o que el mock acepte múltiples clientes, dime qué prefieres y lo adapto.

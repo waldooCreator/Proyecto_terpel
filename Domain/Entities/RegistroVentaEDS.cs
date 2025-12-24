@@ -2,9 +2,10 @@ using System;
 
 namespace Domain.Entities
 {
-    // Modelo EXACTO con los 28 campos indicados por Terpel
+    // Modelo actualizado con TODAS las columnas del CSV real de Terpel (39 campos)
     public class RegistroVentaEDS
     {
+        // Campos básicos de la venta (28 campos originales)
         public required string CódigoEstación { get; set; }
         public required string Estación { get; set; }
         public required string CódigoPromotor { get; set; }
@@ -33,5 +34,18 @@ namespace Domain.Entities
         public required string Unidad { get; set; }
         public required decimal Descuento { get; set; }
         public required decimal ValorVenta { get; set; }
+
+        // Campos adicionales del CSV real (11 campos nuevos)
+        public string? MedioPago { get; set; }
+        public string? MedioIdentificacion { get; set; }
+        public string? Placa { get; set; }
+        public string? TipoDocumentoFE { get; set; }
+        public string? NumeroDocumentoFE { get; set; }
+        public string? NombreCliente { get; set; }
+        public string? Correo { get; set; }
+        public string? Kilometraje { get; set; }
+        public string? Telefono { get; set; }
+        public string? Direccion { get; set; }
+        public string? TipoNegocio { get; set; }
     }
 }

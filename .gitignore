@@ -1,0 +1,27 @@
+# Build outputs
+**/bin/
+**/obj/
+
+# IDE files
+.vs/
+*.user
+*.suo
+*.userprefs
+
+# Logs and temp
+*.log
+*.tmp
+*.temp
+
+# Local settings / secrets (keep out of git)
+Presentation/appsettings.Local*.json
+Presentation/appsettings.Development.json
+Presentation/appsettings.Development.local.json
+Presentation/appsettings.Production*.json
+**/secrets.json
+.env
+.env.*
+
+# Node artifacts (frontend)
+frontend-vue/terpel-frontend/node_modules/
+frontend-vue/terpel-frontend/dist/

@@ -1,36 +1,96 @@
 using System;
 using System.IO;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Threading.Tasks;
+using Application.DTOs;
 using Application.Interfaces;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Services
 {
-    // Placeholder implementation ready to be extended with real auth mechanisms
+    // Servicio que consume la API real de Terpel con Bearer token
     public class TerpelHttpService : ITerpelClient
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<TerpelHttpService> _logger;
+        private readonly Application.Interfaces.IOAuthTokenProvider _oauthProvider;
+        private readonly IConfiguration _configuration;
 
-        public TerpelHttpService(IHttpClientFactory httpClientFactory, ILogger<TerpelHttpService> logger)
+        public TerpelHttpService(IHttpClientFactory httpClientFactory, ILogger<TerpelHttpService> logger, Application.Interfaces.IOAuthTokenProvider oauthProvider, IConfiguration configuration)
         {
             _httpClientFactory = httpClientFactory;
             _logger = logger;
+            _oauthProvider = oauthProvider;
+            _configuration = configuration;
         }
 
-        public Task<string> GetDynamicUrlAsync(string dynamicUrlPlaceholder)
+        public async Task<string> GetDynamicUrlAsync(string dynamicUrlPlaceholder)
         {
-            // Placeholder: in real usage, call the Terpel endpoint with auth to obtain the final URL
             _logger.LogInformation("GetDynamicUrlAsync called with placeholder={Placeholder}", dynamicUrlPlaceholder);
 
-            // Return the placeholder as final URL for demo, or a dummy CSV data URL
-            if (string.IsNullOrWhiteSpace(dynamicUrlPlaceholder))
+            // Si es el dummy, retornar como antes
+            if (!string.IsNullOrWhiteSpace(dynamicUrlPlaceholder) && dynamicUrlPlaceholder.StartsWith("dummy://"))
             {
-                return Task.FromResult("dummy://local/dummy.csv");
+                return dynamicUrlPlaceholder;
             }
 
-            return Task.FromResult(dynamicUrlPlaceholder);
+            // Si se especifica "real" o está vacío, llamar al endpoint real de Terpel
+            if (string.IsNullOrWhiteSpace(dynamicUrlPlaceholder) || dynamicUrlPlaceholder.Equals("real", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var terpelApiUrl = _configuration["TerpelApi:ConsolidadosUrl"];
+                    var bearerToken = _configuration["TerpelApi:BearerToken"];
+
+                    if (string.IsNullOrWhiteSpace(terpelApiUrl) || string.IsNullOrWhiteSpace(bearerToken))
+                    {
+                        _logger.LogWarning("TerpelApi configuration missing (ConsolidadosUrl or BearerToken)");
+                        return "dummy://local/dummy.csv";
+                    }
+
+                    var handler = new HttpClientHandler
+                    {
+                        AutomaticDecompression = System.Net.DecompressionMethods.All
+                    };
+                    var client = new HttpClient(handler);
+                    
+                    client.DefaultRequestHeaders.Add("User-Agent", "PostmanRuntime/7.49.1");
+                    client.DefaultRequestHeaders.Add("Accept", "application/json");
+                    client.DefaultRequestHeaders.Add("Accept-Encoding", "gzip,deflate,br");
+                    client.DefaultRequestHeaders.Add("Connection", "keep-alive");
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+
+                    _logger.LogInformation("Calling Terpel API: {Url}", terpelApiUrl);
+                    var response = await client.GetAsync(terpelApiUrl);
+                    response.EnsureSuccessStatusCode();
+
+                    var jsonContent = await response.Content.ReadAsStringAsync();
+                    var consolidado = JsonSerializer.Deserialize<TerpelConsolidadoResponseDto>(jsonContent, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                    if (consolidado?.archivos != null && consolidado.archivos.Count > 0)
+                    {
+                        var signedUrl = consolidado.archivos[0].signed_url;
+                        _logger.LogInformation("Obtained signed URL from Terpel API. Expires: {Expiration}", consolidado.fecha_expiracion);
+                        return signedUrl;
+                    }
+
+                    _logger.LogWarning("Terpel API returned no files");
+                    return "dummy://local/dummy.csv";
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error calling Terpel API");
+                    return "dummy://local/dummy.csv";
+                }
+            }
+
+            return dynamicUrlPlaceholder;
         }
 
         public async Task<Stream> DownloadFileAsync(string fileUrl)
@@ -47,11 +107,24 @@ namespace Infrastructure.Services
                 return new MemoryStream(bytes);
             }
 
-            // Otherwise perform a real HTTP GET (placeholder for auth handling)
+            // Otherwise perform a real HTTP GET
+            // Note: Signed URLs from Google Cloud Storage already contain authentication
+            // DO NOT add OAuth token for GCS signed URLs
             var client = _httpClientFactory.CreateClient();
-            var response = await client.GetAsync(fileUrl);
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadAsStreamAsync();
+            try
+            {
+                // Signed URLs don't need additional authentication
+                _logger.LogInformation("Downloading file from signed URL: {Url}", fileUrl.Substring(0, Math.Min(100, fileUrl.Length)));
+                
+                var response = await client.GetAsync(fileUrl);
+                response.EnsureSuccessStatusCode();
+                return await response.Content.ReadAsStreamAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error downloading file from {Url}", fileUrl);
+                throw;
+            }
         }
     }
 }
